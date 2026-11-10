@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sacrament Count</title>
+<meta name="description" content="Count Sacrament meeting attendance by chapel section.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Count">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#18212c" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Manrope:wght@600;800&display=swap">
+<style>
+/* Layout: one-column phone tool. Sticky total on top, a stack of section rows, fixed action bar at the bottom. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --fg: #17212e;
+  --muted: #5b6878;
+  --line: #d9dfe7;
+  --accent: #1f5f8b;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2edf5;
+  --good: #1d7a4e;
+  --down: #a3462d;
+  --font-display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --tap: 56px;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151d; --surface: #18212c; --fg: #e8edf3; --muted: #9aa8b8; --line: #2a3644;
+    --accent: #6fb3e0; --accent-ink: #0b1620; --accent-soft: #1d3346; --good: #5fcf98; --down: #f0997f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151d; --surface: #18212c; --fg: #e8edf3; --muted: #9aa8b8; --line: #2a3644;
+  --accent: #6fb3e0; --accent-ink: #0b1620; --accent-soft: #1d3346; --good: #5fcf98; --down: #f0997f;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 520px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Header */
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header .wrap { box-sizing: border-box; padding-block: 12px; display: grid; gap: 10px; }
+.toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 999px; padding: 4px; }
+.tabs button { border: 0; background: transparent; padding: 8px 16px; border-radius: 999px; font-weight: 700; font-size: 15px; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgb(0 0 0 / .15); }
+.datefield { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; min-width: 0; }
+.datefield input { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; background: var(--bg); max-width: 140px; min-width: 0; font-size: 15px; }
+.totalrow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.total-label { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.total { font-family: var(--font-display); font-weight: 800; font-size: 56px; line-height: 1; letter-spacing: -.02em; }
+
+/* Count list */
+main .wrap { padding-block: 16px 140px; display: grid; gap: 10px; }
+.counter { display: grid; grid-template-columns: minmax(0, 1fr) 38%; gap: 12px; align-items: start; }
+.sections { display: grid; gap: 6px; min-width: 0; }
+.row { cursor: pointer; user-select: none; -webkit-user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 54px; box-sizing: border-box; background: var(--surface); border: 2px solid var(--line); border-radius: 12px; padding: 4px 12px; text-align: left; width: 100%; }
+.row[aria-checked="true"] { border: 3px solid var(--accent); background: var(--accent-soft); padding: 3px 11px; }
+.row-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.row-name small { display: block; font-weight: 400; color: var(--accent); font-size: 12px; }
+.value { font-family: var(--font-display); font-weight: 800; font-size: 26px; }
+input.value { width: 72px; height: 44px; border: 2px solid var(--accent); border-radius: 8px; background: var(--surface); text-align: center; outline: none; box-sizing: border-box; }
+.pad { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 150px); display: grid; gap: 10px; }
+.pad-label { text-align: center; font-weight: 700; font-size: 15px; color: var(--muted); }
+.pad-label b { display: block; color: var(--fg); font-size: 17px; }
+.pad button.step { width: 100%; border: 0; border-radius: 16px; font-size: 52px; font-weight: 700; line-height: 1; display: grid; place-items: center; }
+.step.minus { height: 110px; background: var(--bg); color: var(--fg); border: 2px solid var(--line) !important; }
+.step.plus { height: 220px; background: var(--accent); color: var(--accent-ink); font-size: 72px !important; }
+.step:active { transform: scale(.97); }
+.hint { color: var(--muted); font-size: 14px; text-align: center; padding-top: 4px; }
+.example-note { background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+
+/* Bottom bar */
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding-top: 12px; }
+.bar .wrap { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; }
+.btn { height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; padding: 0 14px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--down); }
+
+/* History */
+.hist-head { display: flex; justify-content: space-between; align-items: baseline; }
+.hist-head h2 { font-family: var(--font-display); font-size: 20px; margin: 0; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.week { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.week summary { list-style: none; display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 14px 16px; cursor: pointer; }
+.week summary::-webkit-details-marker { display: none; }
+.week .wk-total { font-family: var(--font-display); font-weight: 800; font-size: 24px; }
+.delta { font-size: 14px; font-weight: 700; min-width: 54px; text-align: right; }
+.delta.up { color: var(--good); } .delta.down { color: var(--down); } .delta.flat { color: var(--muted); }
+.breakdown { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 0 16px 14px; color: var(--muted); font-size: 15px; }
+.breakdown b { color: var(--fg); text-align: right; }
+
+/* Confirm sheet + toast */
+.sheet-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / .4); z-index: 20; display: grid; align-items: end; }
+.sheet { background: var(--surface); border-radius: 18px 18px 0 0; padding: 20px max(16px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 12px; max-width: 520px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.sheet h3 { margin: 0; font-family: var(--font-display); }
+.sheet p { margin: 0; color: var(--muted); }
+.sheet .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700; z-index: 30; font-size: 15px; }
+@media (prefers-reduced-motion: reduce) { .step:active { transform: none; } }
+</style>
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="toprow">
+      <div class="tabs" role="tablist">
+        <button id="tab-count" role="tab" aria-selected="true">Count</button>
+        <button id="tab-history" role="tab" aria-selected="false">History</button>
+      </div>
+      <label class="datefield"><input aria-label="Sunday date" type="date" id="meeting-date"></label>
+    </div>
+    <div class="totalrow" id="totalrow">
+      <span class="total-label">Total in attendance</span>
+      <span class="total num" id="total" aria-live="polite">0</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap" id="count-view"></div>
+  <div class="wrap" id="history-view" hidden></div>
+</main>
+
+<div class="bar" id="bar">
+  <div class="wrap">
+    <button class="btn danger" id="btn-clear">Clear</button>
+    <button class="btn" id="btn-copy">Copy total</button>
+    <button class="btn primary" id="btn-save">Save Sunday</button>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="confirm" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <h3 id="confirm-title">Clear all counts?</h3>
+    <p>This sets every section back to 0. Saved Sundays in History are not affected.</p>
+    <div class="btns">
+      <button class="btn" id="confirm-no">Keep counts</button>
+      <button class="btn primary" id="confirm-yes">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const SECTIONS = ["Stand", "Left Side", "Middle", "Right Side", "Back Row", "Overflow", "Foyers"];
+const STORE_KEY = "sacrament-count-v1";
+
+// Example data so the mockup opens in a realistic state. Marked as examples on screen.
+const EXAMPLE_COUNTS = { "Stand": 9, "Left Side": 41, "Middle": 58, "Right Side": 37, "Back Row": 12, "Overflow": 18, "Foyers": 4 };
+const EXAMPLE_HISTORY = [
+  { date: "2026-10-11", counts: { "Stand": 8, "Left Side": 39, "Middle": 61, "Right Side": 35, "Back Row": 11, "Overflow": 14, "Foyers": 3 } },
+  { date: "2026-10-18", counts: { "Stand": 9, "Left Side": 42, "Middle": 57, "Right Side": 40, "Back Row": 10, "Overflow": 22, "Foyers": 6 } },
+  { date: "2026-10-25", counts: { "Stand": 8, "Left Side": 36, "Middle": 55, "Right Side": 33, "Back Row": 12, "Overflow": 9,  "Foyers": 2 } },
+  { date: "2026-11-01", counts: { "Stand": 10, "Left Side": 44, "Middle": 63, "Right Side": 41, "Back Row": 13, "Overflow": 25, "Foyers": 5 } },
+  { date: "2026-11-08", counts: { "Stand": 9, "Left Side": 40, "Middle": 59, "Right Side": 38, "Back Row": 12, "Overflow": 17, "Foyers": 4 } },
+];
+
+function lastSunday() {
+  const d = new Date(); d.setDate(d.getDate() - d.getDay());
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && s.counts) return s; } catch (e) {}
+  return { counts: {}, history: [], example: false };
+}
+function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
+
+const state = load();
+const sum = c => SECTIONS.reduce((t, s) => t + (c[s] || 0), 0);
+const $ = id => document.getElementById(id);
+const dateInput = $("meeting-date");
+dateInput.value = lastSunday();
+
+function fmtDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2200);
+}
+
+function renderTotal() { $("total").textContent = sum(state.counts); }
+
+function renderCount() {
+  const v = $("count-view"); v.innerHTML = "";
+  if (state.example) {
+    const n = document.createElement("div"); n.className = "example-note";
+    n.textContent = "Example numbers are filled in so you can see how it works. Tap Clear to start fresh.";
+    v.append(n);
+  }
+  const counter = document.createElement("div"); counter.className = "counter";
+  const list = document.createElement("div"); list.className = "sections"; list.setAttribute("role", "radiogroup"); list.setAttribute("aria-label", "Chapel sections");
+  SECTIONS.forEach((name, i) => {
+    const on = name === selected;
+    const row = document.createElement("div"); row.className = "row"; row.id = `row-${i}`; row.tabIndex = 0;
+    row.setAttribute("role", "radio"); row.setAttribute("aria-checked", on);
+    row.innerHTML = `<span class="row-name">${name}${on ? "<small>Tap to type</small>" : ""}</span><span class="value num" id="val-${i}">${state.counts[name] || 0}</span>`;
+    row.onclick = () => { if (selected === name) editValue(name, row.querySelector(".value")); else { selected = name; renderCount(); } };
+    row.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target === row) { e.preventDefault(); row.onclick(); } };
+    list.append(row);
+  });
+  const pad = document.createElement("div"); pad.className = "pad";
+  pad.innerHTML = `<div class="pad-label">Counting<b>${selected}</b></div>
+    <button class="step minus" id="btn-minus" aria-label="Subtract one from ${selected}">−</button>
+    <button class="step plus" id="btn-plus" aria-label="Add one to ${selected}">+</button>`;
+  pad.querySelector("#btn-minus").onclick = () => change(-1);
+  pad.querySelector("#btn-plus").onclick = () => change(+1);
+  counter.append(list, pad); v.append(counter);
+  const h = document.createElement("p"); h.className = "hint";
+  h.textContent = "Tap a section to select it, then use + and −. Tap the selected section again to type its subtotal.";
+  v.append(h);
+}
+
+let selected = SECTIONS[0];
+function change(delta) {
+  const name = selected;
+  state.counts[name] = Math.max(0, (state.counts[name] || 0) + delta);
+  const el = document.getElementById(`val-${SECTIONS.indexOf(name)}`);
+  if (el) el.textContent = state.counts[name];
+  renderTotal(); persist();
+  if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {}
+}
+
+function editValue(name, btn) {
+  const input = document.createElement("input");
+  input.type = "number"; input.inputMode = "numeric"; input.min = "0"; input.className = "value num";
+  input.id = btn.id; input.value = state.counts[name] || 0;
+  input.setAttribute("aria-label", `${name} subtotal`);
+  input.onclick = e => e.stopPropagation();
+  btn.replaceWith(input); input.focus(); input.select();
+  let done = false;
+  const commit = () => {
+    if (done) return; done = true;
+    const n = parseInt(input.value, 10);
+    state.counts[name] = Number.isFinite(n) && n >= 0 ? n : 0;
+    persist(); renderTotal(); renderCount();
+  };
+  input.onblur = commit;
+  input.onkeydown = e => { if (e.key === "Enter") input.blur(); if (e.key === "Escape") { input.value = state.counts[name] || 0; input.blur(); } };
+}
+
+function renderHistory() {
+  const v = $("history-view"); v.innerHTML = "";
+  const hist = [...state.history].sort((a, b) => a.date.localeCompare(b.date));
+  const head = document.createElement("div"); head.className = "hist-head";
+  head.innerHTML = `<h2>Past Sundays</h2><span class="total-label">${hist.length} saved</span>`;
+  v.append(head);
+  if (state.example) {
+    const n = document.createElement("div"); n.className = "example-note";
+    n.textContent = "These Sundays are example data.";
+    v.append(n);
+  }
+  if (!hist.length) {
+    const p = document.createElement("p"); p.className = "hint";
+    p.textContent = "No Sundays saved yet. Count, then tap Save Sunday.";
+    v.append(p); return;
+  }
+  if (hist.length >= 2) v.append(chart(hist));
+  [...hist].reverse().forEach((h, idx, arr) => {
+    const tot = sum(h.counts);
+    const prev = arr[idx + 1];
+    let delta = "", cls = "flat";
+    if (prev) { const d = tot - sum(prev.counts); cls = d > 0 ? "up" : d < 0 ? "down" : "flat"; delta = d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : "same"; }
+    const el = document.createElement("details"); el.className = "week";
+    el.innerHTML = `<summary><span>${fmtDate(h.date)}</span><span class="delta ${cls}">${delta}</span><span class="wk-total num">${tot}</span></summary>
+      <div class="breakdown num">${SECTIONS.map(s => `<span>${s}</span><b>${h.counts[s] || 0}</b>`).join("")}</div>`;
+    v.append(el);
+  });
+}
+
+function chart(hist) {
+  const pts = hist.slice(-12), totals = pts.map(h => sum(h.counts));
+  const W = 320, H = 110, padL = 34, padR = 10, padT = 12, padB = 22;
+  const lo = Math.floor(Math.min(...totals) / 10) * 10, hi = Math.ceil(Math.max(...totals) / 10) * 10 || 10;
+  const x = i => padL + (pts.length === 1 ? 0 : i * (W - padL - padR) / (pts.length - 1));
+  const y = t => padT + (hi === lo ? 0.5 : (hi - t) / (hi - lo)) * (H - padT - padB);
+  const line = totals.map((t, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(t).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(totals.length - 1).toFixed(1)},${H - padB} L${x(0).toFixed(1)},${H - padB} Z`;
+  const last = totals.length - 1;
+  const lbl = h => { const [, m, d] = h.date.split("-").map(Number); return `${m}/${d}`; };
+  const box = document.createElement("div"); box.className = "chart";
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly totals trend">
+    <line x1="${padL}" x2="${W - padR}" y1="${y(hi)}" y2="${y(hi)}" stroke="var(--line)" />
+    <line x1="${padL}" x2="${W - padR}" y1="${y(lo)}" y2="${y(lo)}" stroke="var(--line)" />
+    <text x="${padL - 6}" y="${y(hi) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${hi}</text>
+    <text x="${padL - 6}" y="${y(lo) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${lo}</text>
+    <path d="${area}" fill="var(--accent-soft)" />
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" />
+    <circle cx="${x(last)}" cy="${y(totals[last])}" r="4.5" fill="var(--accent)" />
+    <text x="${x(0)}" y="${H - 6}" font-size="11" fill="var(--muted)">${lbl(pts[0])}</text>
+    <text x="${x(last)}" y="${H - 6}" text-anchor="end" font-size="11" fill="var(--muted)">${lbl(pts[last])}</text>
+  </svg>`;
+  return box;
+}
+
+function showTab(which) {
+  const isCount = which === "count";
+  $("tab-count").setAttribute("aria-selected", isCount);
+  $("tab-history").setAttribute("aria-selected", !isCount);
+  $("count-view").hidden = !isCount; $("history-view").hidden = isCount;
+  $("bar").hidden = !isCount; $("totalrow").hidden = !isCount;
+  if (!isCount) renderHistory();
+}
+$("tab-count").onclick = () => showTab("count");
+$("tab-history").onclick = () => showTab("history");
+
+$("btn-copy").onclick = () => {
+  const text = String(sum(state.counts));
+  const fallback = () => toast(`Total is ${text}`);
+  try { navigator.clipboard.writeText(text).then(() => toast(`Copied ${text}`), fallback); } catch (e) { fallback(); }
+};
+
+$("btn-save").onclick = () => {
+  const date = dateInput.value || lastSunday();
+  if (state.example) { state.history = []; state.example = false; }
+  const existing = state.history.find(h => h.date === date);
+  if (existing) existing.counts = { ...state.counts };
+  else state.history.push({ date, counts: { ...state.counts } });
+  persist();
+  toast(`${existing ? "Updated" : "Saved"} ${fmtDate(date)}: ${sum(state.counts)}`);
+};
+
+$("btn-clear").onclick = () => { $("confirm").hidden = false; $("confirm-no").focus(); };
+$("confirm-no").onclick = () => { $("confirm").hidden = true; };
+$("confirm-yes").onclick = () => {
+  SECTIONS.forEach(s => state.counts[s] = 0);
+  if (state.example) { state.example = false; state.history = []; }
+  persist(); renderTotal(); renderCount(); $("confirm").hidden = true; toast("Counts cleared");
+};
+
+renderTotal(); renderCount();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>

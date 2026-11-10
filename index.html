@@ -120,6 +120,10 @@ input.value { width: 72px; height: 44px; border: 2px solid var(--accent); border
 .sheet h3 { margin: 0; font-family: var(--font-display); }
 .sheet p { margin: 0; color: var(--muted); }
 .sheet .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn.destructive { background: var(--down); border-color: var(--down); color: #fff; }
+.week-actions { padding: 0 16px 14px; display: flex; justify-content: flex-end; }
+.link-danger { border: 0; background: none; color: var(--down); font-weight: 700; font-size: 15px; padding: 8px 4px; text-decoration: underline; text-underline-offset: 3px; }
+.hist-foot { display: flex; justify-content: center; padding-top: 8px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 700; z-index: 30; font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .step:active { transform: none; } }
 </style>
@@ -162,9 +166,9 @@ body { margin: 0; }
 <div class="sheet-backdrop" id="confirm" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <h3 id="confirm-title">Clear all counts?</h3>
-    <p>This sets every section back to 0. Saved Sundays in History are not affected.</p>
+    <p id="confirm-text">This sets every section back to 0. Saved Sundays in History are not affected.</p>
     <div class="btns">
-      <button class="btn" id="confirm-no">Keep counts</button>
+      <button class="btn" id="confirm-no">Cancel</button>
       <button class="btn primary" id="confirm-yes">Clear</button>
     </div>
   </div>
@@ -298,9 +302,38 @@ function renderHistory() {
     if (prev) { const d = tot - sum(prev.counts); cls = d > 0 ? "up" : d < 0 ? "down" : "flat"; delta = d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : "same"; }
     const el = document.createElement("details"); el.className = "week";
     el.innerHTML = `<summary><span>${fmtDate(h.date)}</span><span class="delta ${cls}">${delta}</span><span class="wk-total num">${tot}</span></summary>
-      <div class="breakdown num">${SECTIONS.map(s => `<span>${s}</span><b>${h.counts[s] || 0}</b>`).join("")}</div>`;
+      <div class="breakdown num">${SECTIONS.map(s => `<span>${s}</span><b>${h.counts[s] || 0}</b>`).join("")}</div>
+      <div class="week-actions"><button class="link-danger">Delete this Sunday</button></div>`;
+    el.querySelector(".link-danger").onclick = () => askConfirm({
+      title: `Delete ${fmtDate(h.date)}?`,
+      text: `This removes the saved total of ${tot} and its section counts. This can't be undone.`,
+      yes: "Delete",
+      onYes: () => {
+        state.history = state.history.filter(x => x.date !== h.date);
+        persist(); renderHistory(); toast(`Deleted ${fmtDate(h.date)}`);
+      }
+    });
     v.append(el);
   });
+  const foot = document.createElement("div"); foot.className = "hist-foot";
+  foot.innerHTML = `<button class="link-danger" id="btn-delete-all">Delete all history</button>`;
+  foot.firstChild.onclick = () => askConfirm({
+    title: "Delete all history?",
+    text: `This removes all ${hist.length} saved Sundays from this phone. This can't be undone.`,
+    yes: "Delete all",
+    onYes: () => { state.history = []; state.example = false; persist(); renderHistory(); toast("History deleted"); }
+  });
+  v.append(foot);
+}
+
+let confirmAction = null;
+function askConfirm({ title, text, yes, onYes, destructive = true }) {
+  $("confirm-title").textContent = title;
+  $("confirm-text").textContent = text;
+  $("confirm-yes").textContent = yes;
+  $("confirm-yes").className = destructive ? "btn destructive" : "btn primary";
+  confirmAction = onYes;
+  $("confirm").hidden = false; $("confirm-no").focus();
 }
 
 function chart(hist) {
@@ -355,13 +388,18 @@ $("btn-save").onclick = () => {
   toast(`${existing ? "Updated" : "Saved"} ${fmtDate(date)}: ${sum(state.counts)}`);
 };
 
-$("btn-clear").onclick = () => { $("confirm").hidden = false; $("confirm-no").focus(); };
-$("confirm-no").onclick = () => { $("confirm").hidden = true; };
-$("confirm-yes").onclick = () => {
-  SECTIONS.forEach(s => state.counts[s] = 0);
-  if (state.example) { state.example = false; state.history = []; }
-  persist(); renderTotal(); renderCount(); $("confirm").hidden = true; toast("Counts cleared");
-};
+$("btn-clear").onclick = () => askConfirm({
+  title: "Clear all counts?",
+  text: "This sets every section back to 0. Saved Sundays in History are not affected.",
+  yes: "Clear", destructive: false,
+  onYes: () => {
+    SECTIONS.forEach(s => state.counts[s] = 0);
+    if (state.example) { state.example = false; state.history = []; }
+    persist(); renderTotal(); renderCount(); toast("Counts cleared");
+  }
+});
+$("confirm-no").onclick = () => { $("confirm").hidden = true; confirmAction = null; };
+$("confirm-yes").onclick = () => { $("confirm").hidden = true; const a = confirmAction; confirmAction = null; if (a) a(); };
 
 renderTotal(); renderCount();
 

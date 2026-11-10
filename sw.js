@@ -1,6 +1,6 @@
 // Offline support: cache the app shell so it opens with no signal in the chapel.
 // Bump CACHE when index.html changes so phones pick up the new version.
-const CACHE = "sacrament-count-v1";
+const CACHE = "sacrament-count-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {

@@ -21,4 +21,4 @@ Deleting the Home Screen app or clearing Safari website data erases the history.
 - `sw.js`: service worker that caches the app so it opens with no signal. Bump `CACHE` when you change `index.html`.
 - `manifest.webmanifest` and `icons/`: Home Screen name and icon.
 
-Hosted with GitHub Pages from the `gh-pages` branch.
+Hosted with GitHub Pages from the `main` branch.
